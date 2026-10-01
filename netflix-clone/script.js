@@ -1,3 +1,116 @@
+const ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmODZiMDVkMWM1MGI5NTRiZGE2OGVmOThkOTYyOGMxOSIsIm5iZiI6MTc5MDg1MDE4Ni41MTIsInN1YiI6IjZhYmUzNDhhODc4ZjEyZTE0NjI3NDc3YiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.JdDgtIAkofj8COqbK7kgLvG0ANtxONxcf9rt6BR3qY4";
+let movies = [];
+async function testTMDB() {
+  const response = await fetch(
+    "https://api.themoviedb.org/3/trending/movie/day",
+    {
+      headers: {
+        Authorization: `Bearer ${ACCESS_TOKEN}`
+      }
+    }
+  );
+
+  const data = await response.json();
+
+  console.log(data);
+}
+
+testTMDB();
+const genreMap = {
+  28: "Action",
+  35: "Comedy",
+  18: "Drama",
+  878: "Sci-Fi",
+  12: "Adventure",
+  16: "Animation",
+  80: "Crime",
+  99: "Documentary",
+  10751: "Family",
+  14: "Fantasy",
+  36: "History",
+  27: "Horror",
+  10402: "Music",
+  9648: "Mystery",
+  10749: "Romance",
+  878: "Sci-Fi",
+  10770: "TV Movie",
+  53: "Thriller",
+  10752: "War",
+  37: "Western"
+};
+async function getMovies() {
+  const endpoints = [
+    "https://api.themoviedb.org/3/trending/movie/day",
+    "https://api.themoviedb.org/3/movie/popular",
+    "https://api.themoviedb.org/3/movie/top_rated"
+  ];
+
+  const responses = await Promise.all(
+    endpoints.map((url) =>
+      fetch(url, {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`
+        }
+      })
+    )
+  );
+
+  const data = await Promise.all(
+    responses.map((response) => response.json())
+  );
+
+  const trendingMovies = data[0].results;
+  const popularMovies = data[1].results;
+  const topRatedMovies = data[2].results;
+
+ const allMovies = [
+  ...trendingMovies.map((movie) => ({
+    ...movie,
+    tags: ["trending"]
+  })),
+
+  ...popularMovies.map((movie) => ({
+    ...movie,
+    tags: ["popular"]
+  })),
+
+  ...topRatedMovies.map((movie) => ({
+    ...movie,
+    tags: ["recommended"]
+  }))
+];
+
+const uniqueMovies = new Map();
+
+allMovies.forEach((movie) => {
+  if (uniqueMovies.has(movie.id)) {
+    const existing = uniqueMovies.get(movie.id);
+
+    existing.tags = [
+      ...new Set([...existing.tags, ...movie.tags])
+    ];
+  } else {
+    uniqueMovies.set(movie.id, movie);
+  }
+});
+
+movies = Array.from(uniqueMovies.values()).map((movie) => ({
+  id: movie.id,
+  title: movie.title,
+  year: movie.release_date
+    ? movie.release_date.substring(0, 4)
+    : "N/A",
+  genre: genreMap[movie.genre_ids?.[0]] || "Other",
+  rating: movie.vote_average.toFixed(1),
+  desc: movie.overview,
+  poster_path: movie.poster_path,
+  backdrop_path: movie.backdrop_path,
+  tags: movie.tags,
+  type: "movie"
+}));
+
+  console.log("TMDB movies:", movies);
+}
 const STORAGE_KEY = "streamflix-my-list";
 
 const rows = [
@@ -67,11 +180,11 @@ function toggleList(id) {
 }
 
 function posterUrl(movie) {
-  return "https://placehold.co/300x450/1c1c22/e11d2e?text=" + encodeURIComponent(movie.title);
+  return `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
 }
 
 function backdropUrl(movie) {
-  return "https://placehold.co/1600x800/16161c/e11d2e?text=" + encodeURIComponent(movie.title);
+  return `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`;
 }
 
 function escapeHTML(text) {
@@ -134,7 +247,7 @@ function getVisible() {
 }
 
 function renderHero() {
-  const movie = movies.find((m) => m.featured);
+  const movie = movies[0];
   hero.style.backgroundImage = `url(${backdropUrl(movie)})`;
   hero.innerHTML = `
     <div class="hero-content">
@@ -275,31 +388,11 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !modal.hidden) closeModal();
 });
 
-renderHero();
-render();
-const movies = [
-  { id: 1, title: "Crimson Horizon", year: 2025, genre: "Sci-Fi", rating: 8.4, type: "movie", tags: ["trending", "popular"], featured: true,
-    desc: "A deep-space salvage crew finds a signal that should not exist, and a ship that is already waiting for them." },
-  { id: 2, title: "Iron Harbor", year: 2024, genre: "Action", rating: 7.6, type: "movie", tags: ["trending"],
-    desc: "A retired dock foreman is pulled back in when a smuggling ring takes over his old port." },
-  { id: 3, title: "Quiet Orbit", year: 2023, genre: "Sci-Fi", rating: 8.1, type: "movie", tags: ["popular", "recommended"],
-    desc: "One astronaut, one failing station, and a radio that keeps picking up her own voice from the future." },
-  { id: 4, title: "Laugh Track", year: 2024, genre: "Comedy", rating: 7.2, type: "movie", tags: ["trending"],
-    desc: "A washed-up sitcom actor discovers that real life has no studio audience to tell him when to laugh." },
-  { id: 5, title: "Neon Alley", year: 2022, genre: "Action", rating: 7.8, type: "movie", tags: ["popular"],
-    desc: "A courier has one night to cross a rain-soaked city with a package everyone wants." },
-  { id: 6, title: "The Last Violin", year: 2021, genre: "Drama", rating: 8.6, type: "movie", tags: ["recommended"],
-    desc: "An aging concert violinist teaches one final student and confronts the career she walked away from." },
-  { id: 7, title: "Paper Moons", year: 2023, genre: "Drama", rating: 8.0, type: "show", tags: ["popular"],
-    desc: "Three siblings reunite to sell the family theater and uncover what held them together." },
-  { id: 8, title: "Dead Signal", year: 2025, genre: "Sci-Fi", rating: 7.9, type: "show", tags: ["trending", "recommended"],
-    desc: "When the world's satellites go silent, a small town becomes the only place that can still receive a message." },
-  { id: 9, title: "Brunch Club", year: 2024, genre: "Comedy", rating: 7.0, type: "show", tags: ["recommended"],
-    desc: "Four friends, one table, and a weekly tradition that keeps accidentally changing their lives." },
-  { id: 10, title: "Steel Tide", year: 2023, genre: "Action", rating: 7.5, type: "show", tags: ["popular"],
-    desc: "A coast guard rescue team faces storms, smugglers, and each other across one brutal season." },
-  { id: 11, title: "Two Left Feet", year: 2022, genre: "Comedy", rating: 7.4, type: "movie", tags: ["popular"],
-    desc: "A clumsy accountant enters a ballroom contest to impress a coworker and ends up the star of the show." },
-  { id: 12, title: "Ashes of Summer", year: 2024, genre: "Drama", rating: 8.3, type: "movie", tags: ["trending", "recommended"],
-    desc: "After a wildfire, a small town decides whether to rebuild or leave everything behind." }
-];
+async function startApp() {
+  await getMovies();
+
+  renderHero();
+  render();
+}
+
+startApp();
